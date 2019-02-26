@@ -36,7 +36,7 @@ if (!require(devtools, quietly = TRUE))
 if (!require(ENMeval, quietly = TRUE))
 {
   install.packages('ENMeval')
-  install_github("jscavetta95/ENMeval")
+  install_github("jscavetta95/ENMeval") # This is a forked version of ENMeval, it is required for MaxKappa.
   require(ENMeval)
 }
 
@@ -47,10 +47,10 @@ create.maxent.models <- function(predictors, occurence.points, outputFilename)
 {
   models <- ENMevaluate(occ = occurence.points, 
                         env = predictors, 
-                        categoricals = 1, # Change this depending on which layers are categorical.
+                        categoricals = c(), # Change this depending on which layers are categorical.
                         method = "block",
-                        RMvalues = seq(0.5, 4, 0.5), 
-                        fc = c("L","LQ","H","LQH","LQHP","LQHPT"),
+                        RMvalues = c(1,1.5,2,2.5), 
+                        fc = c("LQ","LQH","LQHPT"),
                         algorithm = 'maxent.jar', 
                         parallel = TRUE)
   
@@ -63,23 +63,27 @@ create.maxent.models <- function(predictors, occurence.points, outputFilename)
   dev.off()
   
   png(paste0(outputFilename,"AICc_model_performance.png"))
-  eval.plot(models@results, 'delta.AICc', legend.position = "bottomright")
+  eval.plot(models@results, 'avg.test.orMTP', var='var.test.orMTP', legend.position = "bottomright")
   dev.off()
   
   png(paste0(outputFilename,"kappa_model_performance.png"))
   eval.plot(models@results, 'avg.test.kappa', var='var.test.kappa', legend.position = "bottomright")
   dev.off()
   
+  png(paste0(outputFilename,"AICc_model_performance.png"))
+  eval.plot(models@results, 'delta.AICc', legend.position = "bottomright")
+  dev.off()
+  
   # Save all model plots and variable importance plots.
   for(model_index in 1:ncol(models@predictions[]))
   {
-    png(paste0(outputFilename,"_model_", models@predictions[[model_index]]@data@names[1], ".png"), width = 1000, height = 800)
+    png(paste0(outputFilename,"model_", models@predictions[[model_index]]@data@names[1], ".png"), width = 1000, height = 800)
     plot(models@predictions[[model_index]], labels=FALSE, tck=FALSE)
     dev.off()
     
     var.imp <- var.importance(models@models[[model_index]])
     
-    png(paste0(outputFilename,"_variable_importance_", models@predictions[[model_index]]@data@names[1], ".png"))
+    png(paste0(outputFilename,"variable_importance_", models@predictions[[model_index]]@data@names[1], ".png"))
     barplot(var.imp$permutation.importance, names.arg = var.imp$variable, las = 2, ylab = "Permutation Importance")
     dev.off()
   }
