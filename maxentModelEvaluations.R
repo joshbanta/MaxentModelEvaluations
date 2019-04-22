@@ -40,14 +40,48 @@ if (!require(ENMeval, quietly = TRUE))
   require(ENMeval)
 }
 
+if (!require(MASS, quietly = TRUE))
+{
+  install.packages('MASS')
+  require(MASS)
+}
+
 
 ##### Functions #####
 
-create.maxent.models <- function(predictors, occurence.points, outputFilename) 
+create.bias.file <- function(predictors, occurence.points, output.filename)
+{
+  occurence.raster <- rasterize(occurence.points, predictors, 1)
+  occurence.coordinates <- coordinates(occurence.raster)[which(values(occurence.raster) == 1), ]
+  
+  kernel.density <- kde2d(occurence.coordinates[,1], occurence.coordinates[,2], 
+                          n = c(nrow(occurence.raster), 
+                                ncol(occurence.raster)), 
+                          lims = c(extent(predictors)@xmin, 
+                                   extent(predictors)@xmax, 
+                                   extent(predictors)@ymin, 
+                                   extent(predictors)@ymax))
+  
+  bias.density <- resample(raster(kernel.density, predictors), predictors)
+  
+  writeRaster(bias.density, paste0(output.filename,"biasfile.asc"), overwrite = TRUE)
+  
+  background.points <- xyFromCell(bias.density, 
+                                  sample(which(!is.na(values(predictors[[1]]))), 
+                                         ifelse(sum(values(bias.density)>0) >= 10000, 10000, sum(values(bias.density)>0)), 
+                                         prob=values(bias.density)[!is.na(values(predictors[[1]]))]))
+
+  write.csv(background.points, paste0(output.filename,"background_points.csv"))
+  
+  return(background.points)
+}
+
+create.maxent.models <- function(predictors, occurence.points, background.points, output.filename) 
 {
   models <- ENMevaluate(occ = occurence.points, 
                         env = predictors, 
-                        categoricals = c(), # Change this depending on which layers are categorical.
+                        categoricals = c(1), # Change this depending on which layers are categorical.
+                        bg.coords = background.points,
                         method = "block",
                         RMvalues = c(1,1.5,2,2.5), 
                         fc = c("LQ","LQH","LQHPT"),
@@ -55,35 +89,39 @@ create.maxent.models <- function(predictors, occurence.points, outputFilename)
                         parallel = TRUE)
   
   # Output model comparisons.
-  write.csv(models@results, paste0(outputFilename,"results.csv"))
+  write.csv(models@results, paste0(output.filename,"results.csv"))
   
   # Save model performance figure.
-  png(paste0(outputFilename,"auc_model_performance.png"))
+  png(paste0(output.filename,"auc_model_performance.png"))
   eval.plot(models@results, 'avg.test.AUC', var='var.test.AUC', legend.position = "bottomright")
   dev.off()
   
-  png(paste0(outputFilename,"AICc_model_performance.png"))
+  png(paste0(output.filename,"AICc_model_performance.png"))
   eval.plot(models@results, 'avg.test.orMTP', var='var.test.orMTP', legend.position = "bottomright")
   dev.off()
   
-  png(paste0(outputFilename,"kappa_model_performance.png"))
+  png(paste0(output.filename,"kappa_model_performance.png"))
   eval.plot(models@results, 'avg.test.kappa', var='var.test.kappa', legend.position = "bottomright")
   dev.off()
   
-  png(paste0(outputFilename,"AICc_model_performance.png"))
+  png(paste0(output.filename,"AICc_model_performance.png"))
   eval.plot(models@results, 'delta.AICc', legend.position = "bottomright")
   dev.off()
   
   # Save all model plots and variable importance plots.
   for(model_index in 1:ncol(models@predictions[]))
   {
-    png(paste0(outputFilename,"model_", models@predictions[[model_index]]@data@names[1], ".png"), width = 1000, height = 800)
+    png(paste0(output.filename,"model_", models@predictions[[model_index]]@data@names[1], ".png"), width = 1000, height = 800)
+    
+    #prediction.cloglog <- predict(models@models[[model_index]], predictors, args=c("outputformat=cloglog"))
+    #plot(prediction.cloglog, labels=FALSE, tck=FALSE)
+    
     plot(models@predictions[[model_index]], labels=FALSE, tck=FALSE)
     dev.off()
     
     var.imp <- var.importance(models@models[[model_index]])
     
-    png(paste0(outputFilename,"variable_importance_", models@predictions[[model_index]]@data@names[1], ".png"))
+    png(paste0(output.filename,"variable_importance_", models@predictions[[model_index]]@data@names[1], ".png"))
     barplot(var.imp$permutation.importance, names.arg = var.imp$variable, las = 2, ylab = "Permutation Importance")
     dev.off()
   }
@@ -98,9 +136,11 @@ for(species in list.files("./occurences", full.names = TRUE))
 {
   occurence.points <- read.csv(species)[,-1]
   
-  outputFilename <- gsub("occurences", "models", species)
-  outputFilename <- gsub("\\.csv", "/", outputFilename)
-  if(!dir.exists(outputFilename)) dir.create(outputFilename)
+  output.filename <- gsub("occurences", "models", species)
+  output.filename <- gsub("\\.csv", "/", output.filename)
+  if(!dir.exists(output.filename)) dir.create(output.filename)
   
-  create.maxent.models(predictors, occurence.points, outputFilename)
+  background.points <- create.bias.file(predictors, occurence.points, output.filename)
+  
+  create.maxent.models(predictors, occurence.points, background.points, output.filename)
 }
