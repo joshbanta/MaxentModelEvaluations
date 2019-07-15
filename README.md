@@ -15,3 +15,5 @@ How to use:
 
 
 Maxent model evaluations makes use of a forked version of the ENMeval package, found on my GitHub, which adds MaxKappa as an evaluation metric.
+
+This project is licensed under the terms of the GNU General Public License v3.0
