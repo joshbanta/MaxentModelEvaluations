@@ -49,14 +49,14 @@ if (!require(MASS, quietly = TRUE))
 
 ##### Functions #####
 
-create.bias.file <- function(predictors, occurence.points, output.filename)
+create.bias.file <- function(predictors, occurrence.points, output.filename)
 {
-  occurence.raster <- rasterize(occurence.points, predictors, 1)
-  occurence.coordinates <- coordinates(occurence.raster)[which(values(occurence.raster) == 1), ]
+  occurrence.raster <- rasterize(occurrence.points, predictors, 1)
+  occurrence.coordinates <- coordinates(occurrence.raster)[which(values(occurrence.raster) == 1), ]
   
-  kernel.density <- kde2d(occurence.coordinates[,1], occurence.coordinates[,2], 
-                          n = c(nrow(occurence.raster), 
-                                ncol(occurence.raster)), 
+  kernel.density <- kde2d(occurrence.coordinates[,1], occurrence.coordinates[,2], 
+                          n = c(nrow(occurrence.raster), 
+                                ncol(occurrence.raster)), 
                           lims = c(extent(predictors)@xmin, 
                                    extent(predictors)@xmax, 
                                    extent(predictors)@ymin, 
@@ -76,11 +76,11 @@ create.bias.file <- function(predictors, occurence.points, output.filename)
   return(background.points)
 }
 
-create.maxent.models <- function(predictors, occurence.points, background.points, output.filename) 
+create.maxent.models <- function(predictors, occurrence.points, background.points, output.filename, categoricals) 
 {
-  models <- ENMevaluate(occ = occurence.points, 
+  models <- ENMevaluate(occ = occurrence.points, 
                         env = predictors, 
-                        categoricals = c(1), # Change this depending on which layers are categorical.
+                        categoricals = categoricals,
                         bg.coords = background.points,
                         method = "block",
                         RMvalues = c(1,1.5,2,2.5), 
@@ -130,17 +130,27 @@ create.maxent.models <- function(predictors, occurence.points, background.points
 
 ##### Script #####
 
+categoricals <- c(1)
+create.bias <- TRUE
+
 if(!dir.exists("./models")) dir.create("./models")
 predictors <- stack(list.files("./layers", pattern = '\\.asc$', full.names = TRUE))
-for(species in list.files("./occurences", full.names = TRUE)) 
+for(species in list.files("./occurrences", full.names = TRUE)) 
 {
-  occurence.points <- read.csv(species)[,-1]
+  occurrence.points <- read.csv(species)[,-1]
   
-  output.filename <- gsub("occurences", "models", species)
+  output.filename <- gsub("occurrences", "models", species)
   output.filename <- gsub("\\.csv", "/", output.filename)
   if(!dir.exists(output.filename)) dir.create(output.filename)
   
-  background.points <- create.bias.file(predictors, occurence.points, output.filename)
+  if(create.bias)
+  {
+    background.points <- create.bias.file(predictors, occurrence.points, output.filename)
+  }
+  else 
+  {
+    background.points <- NULL
+  }
   
-  create.maxent.models(predictors, occurence.points, background.points, output.filename)
+  create.maxent.models(predictors, occurrence.points, background.points, output.filename, categoricals)
 }
