@@ -17,3 +17,19 @@ How to use:
 Maxent model evaluations makes use of a forked version of the ENMeval package, found on my GitHub, which adds MaxKappa as an evaluation metric.
 
 This project is licensed under the terms of the GNU General Public License v3.0
+
+Cite as: 
+>Joseph Scavetta. (2019, July 15). jscavetta95/MaxentModelEvaluations: MaxentModelEvaluations (Version v1.0.0). Zenodo. http://doi.org/10.5281/zenodo.3337225
+
+BibTeX:
+```
+@misc{joseph_scavetta_2019_3337225,
+  author       = {Joseph Scavetta},
+  title        = {{jscavetta95/MaxentModelEvaluations: 
+                   MaxentModelEvaluations}},
+  month        = jul,
+  year         = 2019,
+  doi          = {10.5281/zenodo.3337225},
+  url          = {https://doi.org/10.5281/zenodo.3337225}
+}
+```
